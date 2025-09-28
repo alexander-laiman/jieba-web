@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jieba Segment Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .result {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #007cba;
+        }
+        .word {
+            display: inline-block;
+            background: #e3f2fd;
+            padding: 2px 6px;
+            margin: 2px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .keyword {
+            background: #ffeb3b;
+            font-weight: bold;
+        }
+        .examples {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .example {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .example:hover {
+            background: #f5f5f5;
+        }
+        .loading {
+            background: #e3f2fd !important;
+            color: #1976d2 !important;
+        }
+        .success {
+            background: #e8f5e8 !important;
+            color: #2e7d32 !important;
+        }
+        .error {
+            background: #ffebee !important;
+            color: #c62828 !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jieba Chinese Text Segmentation - Browser Test</h1>
+    
+    <div id="status" class="loading" style="padding: 10px; margin: 10px 0; border-radius: 4px; background: #e3f2fd; color: #1976d2;">Initializing...</div>
+    
+    <div id="controls" style="display: none;">
+    <div class="container">
+        <h2>Text Segmentation</h2>
+        <div class="input-group">
+            <label for="inputText">Enter Chinese text to segment:</label>
+            <textarea id="inputText" placeholder="请输入中文文本进行分词...">我爱北京天安门，天安门上太阳升。</textarea>
+        </div>
+        <button onclick="segmentText()">Segment Text</button>
+        <button onclick="extractKeywords()">Extract Keywords</button>
+        <button onclick="cutAll()">Cut All</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h3>Result:</h3>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Custom Dictionary</h2>
+        <div class="input-group">
+            <label for="customWord">Add custom word:</label>
+            <input type="text" id="customWord" placeholder="自定义词">
+        </div>
+        <div class="input-group">
+            <label for="customFreq">Frequency (optional):</label>
+            <input type="number" id="customFreq" value="5" min="1">
+        </div>
+        <button onclick="addCustomWord()">Add Word</button>
+        
+        <div id="customResult" class="result" style="display: none;">
+            <div id="customResultContent"></div>
+        </div>
+    </div>
+
+    <div class="examples">
+        <h2>Example Texts (click to test)</h2>
+        <div class="example" onclick="setExample(this.textContent)">
+            我爱北京天安门，天安门上太阳升。
+        </div>
+        <div class="example" onclick="setExample(this.textContent)">
+            今天天气很好，我们去公园散步吧。
+        </div>
+        <div class="example" onclick="setExample(this.textContent)">
+            人工智能技术正在快速发展，改变着我们的生活方式。
+        </div>
+        <div class="example" onclick="setExample(this.textContent)">
+            学习中文是一件很有趣的事情，需要不断的练习。
+        </div>
+        <div class="example" onclick="setExample(this.textContent)">
+            北京是中国的首都，有着悠久的历史和丰富的文化。
+        </div>
+    </div>
+    </div> <!-- End controls wrapper -->
+
+    <script src="jieba-segment-full.js"></script>
+    <script>
+        let jieba;
+        let dictionaryLoaded = false;
+        
+        // Initialize Jieba with async dictionary loading
+        async function initializeJieba() {
+            const statusEl = document.getElementById('status');
+            const controlsEl = document.getElementById('controls');
+            
+            try {
+                // Step 1: Create instance
+                statusEl.textContent = 'Creating Jieba instance...';
+                jieba = new JiebaSegmentFull();
+                
+                // Step 2: Load dictionary
+                statusEl.textContent = 'Loading full dictionary (this may take a moment)...';
+                await jieba.loadDictionary('./scripts/data/dictionary.js');
+                
+                // Step 3: Success
+                dictionaryLoaded = true;
+                statusEl.textContent = 'Dictionary loaded successfully!';
+                statusEl.className = 'success';
+                controlsEl.style.display = 'block';
+                
+                // Show dictionary stats
+                const stats = jieba.getDictionaryStats();
+                console.log('Dictionary stats:', stats);
+                
+                // Run initial segmentation
+                segmentText();
+                
+            } catch (error) {
+                statusEl.textContent = 'Failed to load full dictionary, using default';
+                statusEl.className = 'error';
+                controlsEl.style.display = 'block';
+                console.warn('Using default dictionary:', error);
+                
+                // Still works with default dictionary
+                dictionaryLoaded = true;
+                segmentText();
+            }
+        }
+        
+        function segmentText() {
+            if (!dictionaryLoaded) {
+                alert('Dictionary is still loading, please wait...');
+                return;
+            }
+            
+            const text = document.getElementById('inputText').value;
+            if (!text.trim()) {
+                alert('Please enter some text to segment.');
+                return;
+            }
+            
+            const result = jieba.cut(text);
+            displayResult('Segmentation Result', result, 'word');
+        }
+        
+        function extractKeywords() {
+            if (!dictionaryLoaded) {
+                alert('Dictionary is still loading, please wait...');
+                return;
+            }
+            
+            const text = document.getElementById('inputText').value;
+            if (!text.trim()) {
+                alert('Please enter some text to extract keywords from.');
+                return;
+            }
+            
+            const keywords = jieba.extractKeywords(text, 10);
+            displayResult('Keywords', keywords, 'keyword');
+        }
+        
+        function cutAll() {
+            if (!dictionaryLoaded) {
+                alert('Dictionary is still loading, please wait...');
+                return;
+            }
+            
+            const text = document.getElementById('inputText').value;
+            if (!text.trim()) {
+                alert('Please enter some text to segment.');
+                return;
+            }
+            
+            const result = jieba.cutAll(text);
+            displayResult('All Possible Segments', result, 'word');
+        }
+        
+        function addCustomWord() {
+            if (!dictionaryLoaded) {
+                alert('Dictionary is still loading, please wait...');
+                return;
+            }
+            
+            const word = document.getElementById('customWord').value.trim();
+            const freq = parseInt(document.getElementById('customFreq').value) || 5;
+            
+            if (!word) {
+                alert('Please enter a word to add.');
+                return;
+            }
+            
+            jieba.addWord(word, freq);
+            document.getElementById('customResultContent').innerHTML = 
+                `Added word "${word}" with frequency ${freq}`;
+            document.getElementById('customResult').style.display = 'block';
+            
+            // Clear inputs
+            document.getElementById('customWord').value = '';
+        }
+        
+        function displayResult(title, result, className) {
+            const resultDiv = document.getElementById('result');
+            const contentDiv = document.getElementById('resultContent');
+            
+            contentDiv.innerHTML = `<h3>${title}:</h3>`;
+            
+            if (Array.isArray(result)) {
+                result.forEach(word => {
+                    const span = document.createElement('span');
+                    span.className = className;
+                    span.textContent = word;
+                    contentDiv.appendChild(span);
+                });
+            } else {
+                contentDiv.innerHTML += `<p>${result}</p>`;
+            }
+            
+            resultDiv.style.display = 'block';
+        }
+        
+        function setExample(text) {
+            document.getElementById('inputText').value = text;
+        }
+        
+        // Start initialization when page loads
+        window.onload = initializeJieba;
+    </script>
+</body>
+</html>
